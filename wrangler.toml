@@ -1,0 +1,20 @@
+name = "worker-server"
+main = "src/index.js"
+compatibility_date = "2024-11-27"
+compatibility_flags = ["nodejs_compat"]
+
+# Enable Workers Logs
+[observability]
+enabled = true
+
+# Example Variable binding for secrets or environment variables
+[vars]
+# Add your variables here, e.g.:
+# STRIPE_SECRET_KEY = "your-secret-key"
+
+# Example KV Namespace Binding
+# Uncomment and configure if you're using KV storage
+# [[kv_namespaces]]
+# binding = "MY_KV_NAMESPACE"
+# id = "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+
