@@ -1,27 +1,42 @@
-export default {
-    async fetch(request, env) {
-        const url = new URL(request.url);
-        if (url.pathname === "/create-subscription") {
-            return await createSubscription(request, env);
-        }
-        return new Response("Not Found", { status: 404 });
-    },
-};
-
 async function createSubscription(request, env) {
-    const { customerId, amount } = await request.json();
-    const response = await fetch("https://api.stripe.com/v1/subscriptions", {
-        method: "POST",
-        headers: {
-            Authorization: `Bearer ${env.STRIPE_SECRET_KEY}`,
-            "Content-Type": "application/x-www-form-urlencoded",
-        },
-        body: new URLSearchParams({
-            customer: customerId,
-            items: JSON.stringify([{ price_data: { currency: "usd", unit_amount: amount * 100 } }]),
-        }),
-    });
+    const { kids } = await request.json();
 
-    const data = await response.json();
-    return new Response(JSON.stringify(data), { headers: { "Content-Type": "application/json" } });
+    // Validate the input
+    if (!Array.isArray(kids) || kids.length === 0) {
+        return new Response("Invalid input", { status: 400 });
+    }
+
+    try {
+        // Pricing logic (securely calculated on the backend)
+        const basePrice = 100; // Base price per person
+        const totalPrice = kids.reduce((total, _, index) => {
+            if (index === 0) return total + basePrice; // Full price for the first member
+            return total + basePrice * (1 - 0.2 * index); // 20% off per additional member
+        }, 0);
+
+        // Create the subscription in Stripe
+        const response = await fetch("https://api.stripe.com/v1/subscriptions", {
+            method: "POST",
+            headers: {
+                Authorization: `Bearer ${env.STRIPE_SECRET_KEY}`,
+                "Content-Type": "application/x-www-form-urlencoded",
+            },
+            body: new URLSearchParams({
+                "items[0][price_data][currency]": "usd",
+                "items[0][price_data][product]": "prod_ABC123", // Replace with your product ID
+                "items[0][price_data][unit_amount]": Math.round(totalPrice * 100), // Total price in cents
+            }),
+        });
+
+        const data = await response.json();
+
+        // Handle Stripe's response
+        if (!response.ok) throw new Error(data.error?.message || "Stripe subscription failed");
+
+        // Send the subscription checkout URL to the frontend
+        return new Response(JSON.stringify(data), { headers: { "Content-Type": "application/json" } });
+    } catch (error) {
+        console.error('Error creating subscription:', error);
+        return new Response("Failed to create subscription", { status: 500 });
+    }
 }
