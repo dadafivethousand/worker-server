@@ -30,8 +30,9 @@ async function handleCheckoutSession(request, env) {
     try {
         const { kids, parentEmail } = await request.json();
         validateInput({ kids, parentEmail });
-        const customerId = await CreateCustomer(env, parentEmail);
+ 
         const totalPrice = calculatePrice(kids);
+        const customerId = await CreateCustomer(env, parentEmail, totalPrice);
         const checkoutSession = await createStripeCheckoutSession(env, customerId, totalPrice, kids);
         return jsonResponse({ url: checkoutSession.url });
     } catch (error) {
@@ -51,10 +52,25 @@ function validateInput({ kids, parentEmail }) {
 }
 
 // Fetch or create a Stripe customer
-async function CreateCustomer(env, parentEmail) {
+async function CreateCustomer(env, parentEmail, totalPrice, kids) {
  
     const response = await stripeRequest(env, "customers", "POST", { email: parentEmail });
     const customerId = response.id;
+
+    const key = `student:${parentEmail}`;
+    await env.KV_STUDENTS.put(
+        key,
+        JSON.stringify({
+            customerId,
+            parentEmail,
+            kids,
+            paymentStatus: "not-completed",
+            amountDue: totalPrice, // Amount in dollars
+            createdAt: new Date().toISOString(),
+        })
+    );
+
+    console.log('KV entry created')
 
     // Cache the customer ID
  
